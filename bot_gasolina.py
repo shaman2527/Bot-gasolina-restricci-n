@@ -10,7 +10,7 @@ from telegram.ext import (
     ConversationHandler
 )
 
-TOKEN = "API KEY"
+TOKEN = "7851906045:AAE-RY_mxl1ezjyXhPoDXl0yKledBYmmow8"
 INPUT_PLACA = 1
 
 def obtener_dia_semana(fecha):
@@ -79,3 +79,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    
+
+#Dependencia app requirements.txt
+
+import subprocess
+
+with open("requirements.txt", "w") as f:
+    subprocess.run(["pip", "freeze"], stdout=f)
