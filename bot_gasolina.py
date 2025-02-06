@@ -10,7 +10,7 @@ from telegram.ext import (
     ConversationHandler
 )
 
-TOKEN = "7851906045:AAE-RY_mxl1ezjyXhPoDXl0yKledBYmmow8"
+TOKEN = "API KEY"
 INPUT_PLACA = 1
 
 def obtener_dia_semana(fecha):
