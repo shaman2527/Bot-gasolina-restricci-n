@@ -1,71 +1,81 @@
 from datetime import datetime, timedelta
 import pandas as pd
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
+    ConversationHandler
+)
 
-# Función para obtener el día de la semana
+TOKEN = "API KEY"
+INPUT_PLACA = 1
+
 def obtener_dia_semana(fecha):
     dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
     return dias_semana[fecha.weekday()]
 
-# Función principal del bot
-def bot_restriccion_gasolina():
-    print("¡Hola! Soy tu asistente para restricciones de gasolina.")
-    
-    # Solicitar al usuario el último dígito de la placa
-    while True:
-        try:
-            ultimo_digito = int(input("Por favor, ingresa el último dígito de la placa de tu carro (0-9): "))
-            if 0 <= ultimo_digito <= 9:
-                break
-            else:
-                print("Por favor, ingresa un número válido entre 0 y 9.")
-        except ValueError:
-            print("Entrada inválida. Debes ingresar un número.")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("*¡Bienvenido a BOT RBS!*\n\n Ingresa el último dígito de tu placa (0-9):")
+    return INPUT_PLACA
 
-    # Obtener la fecha actual
-    fecha_actual = datetime.now()
-
-    # Lista para almacenar los resultados
-    datos = []
-    
-    # Calcular los próximos 5 días con sus restricciones
-    for i in range(5):
-        fecha_futura = fecha_actual + timedelta(days=i)
-        dia_semana = obtener_dia_semana(fecha_futura)
-        
-        # Asignar placas según el día en el ciclo de 5 días
-        ciclo = i % 5
-        if ciclo == 0:
-            placas = "1 y 2"
-        elif ciclo == 1:
-            placas = "3 y 4"
-        elif ciclo == 2:
-            placas = "5 y 6"
-        elif ciclo == 3:
-            placas = "7 y 8"
+async def procesar_placa(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        ultimo_digito = int(update.message.text)
+        if 0 <= ultimo_digito <= 9:
+            fecha_actual = datetime.now()
+            datos = []
+            
+            for i in range(5):
+                fecha_futura = fecha_actual + timedelta(days=i)
+                dia_semana = obtener_dia_semana(fecha_futura)
+                
+                ciclo = i % 5
+                placas = "1 y 2" if ciclo == 0 else \
+                        "3 y 4" if ciclo == 1 else \
+                        "5 y 6" if ciclo == 2 else \
+                        "7 y 8" if ciclo == 3 else "9 y 0"
+                
+                permitido = (ultimo_digito in [1, 2] and ciclo == 0) or \
+                            (ultimo_digito in [3, 4] and ciclo == 1) or \
+                            (ultimo_digito in [5, 6] and ciclo == 2) or \
+                            (ultimo_digito in [7, 8] and ciclo == 3) or \
+                            (ultimo_digito in [9, 0] and ciclo == 4)
+                
+                datos.append({
+                    "Fecha": fecha_futura.strftime("%Y-%m-%d"),
+                    "Día": dia_semana,
+                    "Placas": placas,
+                    "Permitido": "✅ Sí" if permitido else "❌ No"
+                })
+            
+            df = pd.DataFrame(datos)
+            respuesta = "📅 **Resultados:**\n```\n" + df.to_string(index=False) + "\n```"
+            await update.message.reply_text(respuesta, parse_mode="Markdown")
+            
         else:
-            placas = "9 y 0"
-        
-        # Verificar si el usuario puede echar gasolina ese día
-        permitido = (ultimo_digito in [1, 2] and ciclo == 0) or \
-                    (ultimo_digito in [3, 4] and ciclo == 1) or \
-                    (ultimo_digito in [5, 6] and ciclo == 2) or \
-                    (ultimo_digito in [7, 8] and ciclo == 3) or \
-                    (ultimo_digito in [9, 0] and ciclo == 4)
-        
-        # Agregar datos a la lista
-        datos.append({
-            "Fecha": fecha_futura.strftime("%Y-%m-%d"),
-            "Día": dia_semana,
-            "Placas": placas,
-            "Permitido": "Sí" if permitido else "No"
-        })
+            await update.message.reply_text("❌ Por favor, ingresa un número entre 0 y 9.")
     
-    # Crear DataFrame
-    df = pd.DataFrame(datos)
+    except ValueError:
+        await update.message.reply_text("❌ Entrada inválida. Debes ingresar un número.")
     
-    # Mostrar el DataFrame
-    print("\nResultados en formato DataFrame:")
-    print(df.to_string(index=False))  # Usamos to_string para mejor formato
+    return ConversationHandler.END
 
-# Ejecutar el bot
-bot_restriccion_gasolina()
+def main():
+    application = Application.builder().token(TOKEN).build()
+
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            INPUT_PLACA: [MessageHandler(filters.TEXT & ~filters.COMMAND, procesar_placa)]
+        },
+        fallbacks=[]
+    )
+
+    application.add_handler(conv_handler)
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
